@@ -5,9 +5,9 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 const { PrismaClient } = require('@prisma/client');
 
-// Importar rutas (se agregarán después)
-// const authRoutes = require('./routes/authRoutes');
-// const habitRoutes = require('./routes/habitRoutes');
+// Importar rutas
+const authRoutes = require('./routes/authRoutes');
+// const habitRoutes = require('./routes/habitRoutes'); // Issue #4
 
 const app = express();
 const prisma = new PrismaClient();
@@ -31,9 +31,9 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Rutas (se agregarán después)
-// app.use('/api/auth', authRoutes);
-// app.use('/api/habits', habitRoutes);
+// Rutas
+app.use('/api/auth', authRoutes);
+// app.use('/api/habits', authenticate, habitRoutes); // Issue #4
 
 // Manejo de errores 404
 app.use((req, res) => {
@@ -53,22 +53,32 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Iniciar servidor
-async function startServer() {
-  try {
-    await prisma.$connect();
-    console.log('Conectado a MySQL');
-    
-    app.listen(PORT, () => {
-      console.log(`Servidor corriendo en http://localhost:${PORT}`);
-      console.log(`Health Check: http://localhost:${PORT}/api/health`);
-    });
-  } catch (error) {
-    console.error('Error al conectar a la base de datos:', error);
-    process.exit(1);
+// Iniciar servidor SOLO si no estamos en entorno de tests
+if (process.env.NODE_ENV !== 'test') {
+  async function startServer() {
+    try {
+      await prisma.$connect();
+      console.log('✅ Conectado a MySQL');
+      
+      app.listen(PORT, () => {
+        console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
+        console.log(`📊 Health Check: http://localhost:${PORT}/api/health`);
+        console.log(`🔐 Auth: http://localhost:${PORT}/api/auth`);
+      });
+    } catch (error) {
+      console.error('❌ Error al conectar a la base de datos:', error);
+      process.exit(1);
+    }
   }
-}
 
-startServer();
+  startServer();
+} else {
+  // En entorno de test, solo conectar y exportar
+  prisma.$connect().then(() => {
+    console.log('✅ Conectado a MySQL (modo test)');
+  }).catch((error) => {
+    console.error('❌ Error al conectar a la base de datos (test):', error);
+  });
+}
 
 module.exports = app;
