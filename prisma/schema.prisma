@@ -1,0 +1,106 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+
+enum Status {
+  COMPLETED
+  SKIPPED
+  FAILED
+}
+
+enum Frequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+// ============================================
+// MODELOS
+// ============================================
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique @db.VarChar(255)
+  password  String   @db.VarChar(255) // Hashed con bcrypt
+  name      String   @db.VarChar(100)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  
+  // Relaciones
+  habits    Habit[]
+  logs      HabitLog[]
+  reminders Reminder[]
+  
+  @@map("users")
+}
+
+/// Modelo de Hábito - Representa un hábito que el usuario quiere desarrollar
+model Habit {
+  id          Int       @id @default(autoincrement())
+  userId      Int       @map("user_id")
+  name        String    @db.VarChar(100)
+  description String?   @db.Text
+  frequency   Frequency @default(DAILY)
+  targetDays  Int?      // Días objetivo por semana (ej: 5 para "5 días a la semana")
+  color       String?   @db.VarChar(7)  // Código hexadecimal: #FF6B6B
+  icon        String?   @db.VarChar(10) // Emoji o icono: 💪
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  
+  // Relaciones
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  logs      HabitLog[]
+  reminders Reminder[]
+  
+  // Índices para mejorar rendimiento
+  @@index([userId])
+  @@index([frequency])
+  @@map("habits")
+}
+
+/// Modelo de Log - Registro diario del progreso del hábito
+model HabitLog {
+  id        Int      @id @default(autoincrement())
+  habitId   Int      @map("habit_id")
+  userId    Int      @map("user_id")  // Denormalizado para consultas rápidas
+  date      DateTime @default(now()) @db.Date
+  status    Status   @default(COMPLETED)
+  notes     String?  @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  
+  // Relaciones
+  habit Habit @relation(fields: [habitId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id])
+  
+  // Índices y constraints
+  @@unique([habitId, date])  // Un log por hábito por día
+  @@index([userId, date])    // Consultas rápidas por usuario y fecha
+  @@index([status])
+  @@map("habit_logs")
+}
+
+/// Modelo de Recordatorio - Notificaciones para el usuario
+model Reminder {
+  id        Int      @id @default(autoincrement())
+  habitId   Int      @map("habit_id")
+  userId    Int      @map("user_id")
+  time      String   @db.VarChar(5)  // Formato HH:MM
+  days      String?  @db.VarChar(20) // "1,3,5" o null para diario
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  
+  // Relaciones
+  habit Habit @relation(fields: [habitId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id])
+  
+  // Índices
+  @@index([userId, active])
+  @@map("reminders")
+}
