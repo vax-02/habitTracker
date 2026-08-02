@@ -9,8 +9,9 @@ const { PrismaClient } = require('@prisma/client');
 const authRoutes = require('./routes/authRoutes');
 const habitRoutes = require('./routes/habitRoutes');
 const logRoutes = require('./routes/logRoutes'); 
+const reminderRoutes = require('./routes/reminderRoutes');
 
-// const habitRoutes = require('./routes/habitRoutes'); // Issue #4
+const { scheduleReminders } = require('./services/scheduler');
 
 const app = express();
 const prisma = new PrismaClient();
@@ -49,6 +50,7 @@ app.get('/api/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/habits', habitRoutes); 
 app.use('/api', logRoutes);
+app.use('/api/reminders', reminderRoutes); 
 
 // Manejo de errores 404
 app.use((req, res) => {
