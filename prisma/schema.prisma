@@ -95,12 +95,15 @@ model Reminder {
   active    Boolean  @default(true)
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
-  
+  lastSent  DateTime? @map("last_sent")
+
   // Relaciones
   habit Habit @relation(fields: [habitId], references: [id], onDelete: Cascade)
   user  User  @relation(fields: [userId], references: [id])
   
   // Índices
   @@index([userId, active])
+  @@index([time])
   @@map("reminders")
 }
+
