@@ -87,11 +87,15 @@ class API {
   /**
    * DELETE request
    */
-  async delete(endpoint) {
-    const response = await fetch(`${this.baseURL}${endpoint}`, {
+  async delete(endpoint, data) {
+    const options = {
       method: 'DELETE',
       headers: this.getHeaders()
-    });
+    };
+    if (data) {
+      options.body = JSON.stringify(data);
+    }
+    const response = await fetch(`${this.baseURL}${endpoint}`, options);
     return this.handleResponse(response);
   }
 

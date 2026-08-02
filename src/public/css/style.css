@@ -161,6 +161,39 @@ body {
   font-size: 0.9rem;
 }
 
+/* Reloj dinámico */
+.clock-display {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'Courier New', monospace;
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--primary);
+  background: var(--card);
+  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow);
+  border: 2px solid var(--border);
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+.clock-display:hover {
+  border-color: var(--primary);
+  transform: translateY(-1px);
+}
+
+.clock-display i {
+  font-size: 1rem;
+  opacity: 0.8;
+}
+
+#clock-time {
+  letter-spacing: 1px;
+  font-variant-numeric: tabular-nums;
+}
+
 /* Stats Grid */
 .stats-grid {
   display: grid;
@@ -686,3 +719,5 @@ body {
     grid-template-columns: 1fr;
   }
 }
+
+

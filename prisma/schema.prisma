@@ -32,9 +32,10 @@ model User {
   updatedAt DateTime @updatedAt @map("updated_at")
   
   // Relaciones
-  habits    Habit[]
-  logs      HabitLog[]
-  reminders Reminder[]
+  habits          Habit[]
+  logs            HabitLog[]
+  reminders       Reminder[]
+  pushSubscriptions PushSubscription[]
   
   @@map("users")
 }
@@ -85,17 +86,42 @@ model HabitLog {
   @@map("habit_logs")
 }
 
+/// Enum de tipo de notificación
+enum ReminderType {
+  EMAIL
+  PUSH
+  BOTH
+}
+
+/// Modelo de Suscripción Push - Almacena suscripciones de Web Push del usuario
+model PushSubscription {
+  id           Int      @id @default(autoincrement())
+  userId       Int      @map("user_id")
+  endpoint     String   @unique @db.VarChar(500)
+  keys         Json     @db.Json
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relaciones
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Índices
+  @@index([userId])
+  @@map("push_subscriptions")
+}
+
 /// Modelo de Recordatorio - Notificaciones para el usuario
 model Reminder {
-  id        Int      @id @default(autoincrement())
-  habitId   Int      @map("habit_id")
-  userId    Int      @map("user_id")
-  time      String   @db.VarChar(5)  // Formato HH:MM
-  days      String?  @db.VarChar(20) // "1,3,5" o null para diario
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-  lastSent  DateTime? @map("last_sent")
+  id        Int          @id @default(autoincrement())
+  habitId   Int          @map("habit_id")
+  userId    Int          @map("user_id")
+  time      String       @db.VarChar(5)  // Formato HH:MM
+  days      String?      @db.VarChar(20) // "1,3,5" o null para diario
+  type      ReminderType @default(EMAIL)
+  active    Boolean      @default(true)
+  createdAt DateTime     @default(now()) @map("created_at")
+  updatedAt DateTime     @updatedAt @map("updated_at")
+  lastSent  DateTime?    @map("last_sent")
 
   // Relaciones
   habit Habit @relation(fields: [habitId], references: [id], onDelete: Cascade)

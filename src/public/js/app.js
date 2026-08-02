@@ -15,12 +15,20 @@ function renderApp() {
     return;
   }
 
+  if (hash !== '#dashboard') {
+    charts.destroyAll();
+  }
+
+
   switch (hash) {
     case '#dashboard':
       dashboard.render();
       break;
     case '#habits':
       dashboard.render();
+      break;
+    case '#reminders':
+      reminders.render();
       break;
     default:
       dashboard.render();
@@ -35,4 +43,9 @@ document.addEventListener('DOMContentLoaded', () => {
   // Inicializar tema (claro/oscuro) desde cookie
   theme.init();
   renderApp();
+
+  // Inicializar push notifications si el usuario está autenticado
+  if (auth.checkAuth()) {
+    pushModule.init();
+  }
 });
