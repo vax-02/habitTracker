@@ -10,8 +10,8 @@ const prisma = new PrismaClient();
 function scheduleReminders() {
   console.log('⏰ Iniciando scheduler de recordatorios...');
   
-  // Ejecutar cada 5 minutos
-  cron.schedule('*/5 * * * *', async () => {
+  // Ejecutar cada minuto para precisión en la hora marcada
+  cron.schedule('* * * * *', async () => {
     try {
       console.log('🔄 Verificando recordatorios pendientes...');
       
@@ -33,9 +33,14 @@ function scheduleReminders() {
             { days: null }, // Diario
             { days: { contains: dayOfWeek.toString() } } // Días específicos
           ],
-          lastSent: {
-            lt: new Date(now.getTime() - 24 * 60 * 60 * 1000) // No enviado en las últimas 24h
-          }
+          AND: [
+            {
+              OR: [
+                { lastSent: null }, // Nunca enviado
+                { lastSent: { lt: new Date(now.getTime() - 24 * 60 * 60 * 1000) } } // No enviado en últimas 24h
+              ]
+            }
+          ]
         },
         include: {
           user: true,
@@ -52,16 +57,31 @@ function scheduleReminders() {
       
       // Agregar trabajos a la cola
       for (const reminder of reminders) {
+        // Obtener suscripciones push del usuario si el tipo lo requiere
+        let pushSubscriptions = [];
+        if (reminder.type === 'PUSH' || reminder.type === 'BOTH') {
+          const subs = await prisma.pushSubscription.findMany({
+            where: { userId: reminder.userId }
+          });
+          pushSubscriptions = subs.map(s => ({
+            endpoint: s.endpoint,
+            keys: s.keys
+          }));
+        }
+
         await reminderQueue.add('send-reminder', {
           userId: reminder.userId,
           habitId: reminder.habitId,
           habitName: reminder.habit.name,
+          habitIcon: reminder.habit.icon,
           userEmail: reminder.user.email,
           userName: reminder.user.name,
-          reminderId: reminder.id
+          reminderId: reminder.id,
+          type: reminder.type,
+          pushSubscriptions
         });
         
-        console.log(`📌 Recordatorio añadido a la cola: ${reminder.habit.name}`);
+        console.log(`📌 Recordatorio añadido a la cola: ${reminder.habit.name} (${reminder.type})`);
       }
       
     } catch (error) {

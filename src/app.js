@@ -10,6 +10,7 @@ const authRoutes = require('./routes/authRoutes');
 const habitRoutes = require('./routes/habitRoutes');
 const logRoutes = require('./routes/logRoutes'); 
 const reminderRoutes = require('./routes/reminderRoutes');
+const pushRoutes = require('./routes/pushRoutes');
 
 const { scheduleReminders } = require('./services/scheduler');
 
@@ -46,11 +47,28 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// Endpoint de tiempo del servidor (para sincronizar reloj del frontend)
+app.get('/api/time', (req, res) => {
+  res.json({
+    success: true,
+    data: {
+      serverTime: new Date().toISOString(),
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+    }
+  });
+});
+
 // Rutas
 app.use('/api/auth', authRoutes);
 app.use('/api/habits', habitRoutes); 
 app.use('/api', logRoutes);
-app.use('/api/reminders', reminderRoutes); 
+app.use('/api/reminders', reminderRoutes);
+app.use('/api/push', pushRoutes);
+
+// Service worker para push notifications
+app.get('/sw.js', (req, res) => {
+  res.sendFile(__dirname + '/public/sw.js');
+});
 
 // Manejo de errores 404
 app.use((req, res) => {
@@ -77,10 +95,14 @@ if (process.env.NODE_ENV !== 'test') {
       await prisma.$connect();
       console.log('✅ Conectado a MySQL');
       
+      // Iniciar scheduler de recordatorios
+      scheduleReminders();
+
       app.listen(PORT, () => {
         console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
         console.log(`📊 Health Check: http://localhost:${PORT}/api/health`);
         console.log(`🔐 Auth: http://localhost:${PORT}/api/auth`);
+        console.log(`🔔 Push: http://localhost:${PORT}/api/push`);
       });
     } catch (error) {
       console.error('❌ Error al conectar a la base de datos:', error);
