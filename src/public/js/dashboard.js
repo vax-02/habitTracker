@@ -11,13 +11,19 @@ class DashboardModule {
   /**
    * Renderizar dashboard
    */
-  async render() {
+ async render() {
   try {
     const dashboardData = await api.getDashboard();
     this.dashboardData = dashboardData.data;
     
     const habitsData = await api.getHabits();
     this.habits = habitsData.data;
+
+    // Obtener datos para gráficos
+    const weeklyData = await api.getWeeklySummary();
+    const streakData = await this.getStreakData();
+    const statusDistribution = await this.getStatusDistribution();
+    const monthlyTrend = await this.getMonthlyTrend();
 
     const content = document.getElementById('app-content');
     content.innerHTML = `
@@ -31,9 +37,14 @@ class DashboardModule {
               ${new Date().toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
             </p>
           </div>
-          <button id="logout-btn" class="btn btn-secondary">
-            <i class="fas fa-sign-out-alt"></i> Cerrar Sesión
-          </button>
+          <div class="header-actions">
+            <button id="refresh-btn" class="btn btn-secondary">
+              <i class="fas fa-sync-alt"></i> Actualizar
+            </button>
+            <button id="logout-btn" class="btn btn-secondary">
+              <i class="fas fa-sign-out-alt"></i> Cerrar Sesión
+            </button>
+          </div>
         </div>
 
         <!-- Stats -->
@@ -76,38 +87,260 @@ class DashboardModule {
           </div>
         </div>
 
-        <!-- Hábitos -->
-        <div class="habits-section">
-          <div class="section-header">
-            <h2><i class="fas fa-robot"></i> Tus Hábitos</h2>
-            <button id="new-habit-btn" class="btn btn-primary">
-              <i class="fas fa-plus-circle"></i> Nuevo Hábito
+        <!-- Pestañas -->
+        <div class="tabs-container">
+          <div class="tabs-header">
+            <button id="tab-habits-btn" class="tab-btn active" data-tab="habits">
+              <i class="fas fa-robot"></i> Mis Hábitos
+            </button>
+            <button id="tab-charts-btn" class="tab-btn" data-tab="charts">
+              <i class="fas fa-chart-line"></i> Gráficos
             </button>
           </div>
-          <div id="habits-list" class="habits-list"></div>
+
+          <!-- Tab: Hábitos -->
+          <div id="tab-habits" class="tab-content active">
+            <div class="habits-section">
+              <div class="section-header">
+                <h2><i class="fas fa-robot"></i> Tus Hábitos</h2>
+                <button id="new-habit-btn" class="btn btn-primary">
+                  <i class="fas fa-plus-circle"></i> Nuevo Hábito
+                </button>
+              </div>
+              <div id="habits-list" class="habits-list"></div>
+            </div>
+          </div>
+
+          <!-- Tab: Gráficos -->
+          <div id="tab-charts" class="tab-content">
+            <div class="charts-grid">
+              <!-- Gráfico Semanal -->
+              <div class="chart-card">
+                <div class="chart-header">
+                  <h3><i class="fas fa-calendar-week"></i> Progreso Semanal</h3>
+                  <span class="chart-subtitle">Últimos 7 días</span>
+                </div>
+                <div class="chart-container">
+                  <canvas id="weeklyChart"></canvas>
+                </div>
+              </div>
+
+              <!-- Gráfico de Distribución -->
+              <div class="chart-card">
+                <div class="chart-header">
+                  <h3><i class="fas fa-chart-pie"></i> Distribución de Estados</h3>
+                  <span class="chart-subtitle">Esta semana</span>
+                </div>
+                <div class="chart-container">
+                  <canvas id="statusChart"></canvas>
+                </div>
+              </div>
+
+              <!-- Gráfico de Racha -->
+              <div class="chart-card">
+                <div class="chart-header">
+                  <h3><i class="fas fa-fire"></i> Racha de Hábitos</h3>
+                  <span class="chart-subtitle">Últimos 30 días</span>
+                </div>
+                <div class="chart-container">
+                  <canvas id="streakChart"></canvas>
+                </div>
+              </div>
+
+              <!-- Gráfico de Tendencia -->
+              <div class="chart-card">
+                <div class="chart-header">
+                  <h3><i class="fas fa-chart-area"></i> Tendencia Mensual</h3>
+                  <span class="chart-subtitle">Últimos 30 días</span>
+                </div>
+                <div class="chart-container">
+                  <canvas id="monthlyChart"></canvas>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     `;
 
-    // Agregar event listeners en lugar de onclick
+    // ✅ Inicializar gráficos
+    setTimeout(() => {
+      this.initCharts(weeklyData, statusDistribution, streakData, monthlyTrend);
+    }, 100);
+
+    // ✅ Agregar event listeners
     document.getElementById('logout-btn').addEventListener('click', () => {
       auth.logout();
     });
-/*
-    document.getElementById('').addEventListener('click',()=>{
-      habits.closeModal();
-    })*/
 
     document.getElementById('new-habit-btn').addEventListener('click', () => {
       habits.showCreateModal();
     });
 
+    document.getElementById('refresh-btn').addEventListener('click', () => {
+      this.refresh();
+    });
+
+    // ✅ Event listeners para pestañas
+    document.getElementById('tab-habits-btn').addEventListener('click', () => {
+      this.switchTab('habits');
+    });
+
+    document.getElementById('tab-charts-btn').addEventListener('click', () => {
+      this.switchTab('charts');
+    });
+
     this.renderHabits();
-    this.loadWeeklyData();
 
   } catch (error) {
     console.error('Error cargando dashboard:', error);
     this.showError('Error al cargar el dashboard');
+  }
+}
+
+/**
+ * Cambiar entre pestañas
+ */
+switchTab(tabName) {
+  // Actualizar botones
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.tab === tabName);
+  });
+
+  // Actualizar contenido
+  document.querySelectorAll('.tab-content').forEach(content => {
+    content.classList.toggle('active', content.id === `tab-${tabName}`);
+  });
+}
+
+/**
+ * Inicializar todos los gráficos
+ */
+initCharts(weeklyData, statusData, streakData, monthlyData) {
+  // 1. Gráfico semanal
+  if (weeklyData.data && weeklyData.data.dailyStats) {
+    charts.createWeeklyChart('weeklyChart', weeklyData.data.dailyStats);
+  }
+
+  // 2. Gráfico de distribución
+  if (statusData && statusData.length > 0) {
+    charts.createStatusChart('statusChart', statusData);
+  }
+
+  // 3. Gráfico de racha
+  if (streakData && streakData.length > 0) {
+    charts.createStreakChart('streakChart', streakData);
+  }
+
+  // 4. Gráfico de tendencia mensual
+  if (monthlyData && monthlyData.length > 0) {
+    charts.createMonthlyChart('monthlyChart', monthlyData);
+  }
+}
+
+/**
+ * Obtener datos de distribución de estados
+ */
+async getStatusDistribution() {
+  try {
+    const weeklyData = await api.getWeeklySummary();
+    if (!weeklyData.data || !weeklyData.data.dailyStats) return [];
+
+    const statusCount = {
+      COMPLETED: 0,
+      SKIPPED: 0,
+      FAILED: 0,
+      PENDING: 0
+    };
+
+    weeklyData.data.dailyStats.forEach(day => {
+      day.logs.forEach(log => {
+        if (statusCount[log.status] !== undefined) {
+          statusCount[log.status]++;
+        }
+      });
+    });
+
+    // Calcular pendientes
+    const totalHabits = weeklyData.data.summary.totalHabits;
+    const totalLogged = Object.values(statusCount).reduce((a, b) => a + b, 0);
+    const totalPossible = totalHabits * 7;
+    statusCount.PENDING = totalPossible - totalLogged;
+
+    return Object.keys(statusCount).map(status => ({
+      status,
+      count: statusCount[status]
+    })).filter(d => d.count > 0);
+
+  } catch (error) {
+    console.error('Error getting status distribution:', error);
+    return [];
+  }
+}
+
+/**
+ * Obtener datos de racha para gráfico
+ */
+async getStreakData() {
+  try {
+    // Simular datos de racha (en producción, obtener del backend)
+    const today = new Date();
+    const data = [];
+    let streak = 0;
+    
+    for (let i = 29; i >= 0; i--) {
+      const date = new Date(today);
+      date.setDate(date.getDate() - i);
+      
+      // Simular racha (alternar para demo)
+      if (i % 3 === 0) {
+        streak = 0;
+      } else {
+        streak++;
+      }
+      
+      data.push({
+        date: date.toISOString().split('T')[0],
+        streak: streak
+      });
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Error getting streak data:', error);
+    return [];
+  }
+}
+
+/**
+ * Obtener datos de tendencia mensual
+ */
+async getMonthlyTrend() {
+  try {
+    // Simular datos mensuales (en producción, obtener del backend)
+    const today = new Date();
+    const data = [];
+    
+    for (let i = 29; i >= 0; i--) {
+      const date = new Date(today);
+      date.setDate(date.getDate() - i);
+      
+      const completed = Math.floor(Math.random() * 5);
+      const total = 5;
+      const rate = Math.round((completed / total) * 100);
+      
+      data.push({
+        date: date.toISOString().split('T')[0],
+        completed: completed,
+        total: total,
+        rate: rate
+      });
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Error getting monthly trend:', error);
+    return [];
   }
 }
 
