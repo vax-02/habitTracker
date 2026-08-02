@@ -8,6 +8,7 @@ const { PrismaClient } = require('@prisma/client');
 // Importar rutas
 const authRoutes = require('./routes/authRoutes');
 const habitRoutes = require('./routes/habitRoutes');
+const logRoutes = require('./routes/logRoutes'); 
 
 // const habitRoutes = require('./routes/habitRoutes'); // Issue #4
 
@@ -36,6 +37,7 @@ app.get('/api/health', (req, res) => {
 // Rutas
 app.use('/api/auth', authRoutes);
 app.use('/api/habits', habitRoutes); 
+app.use('/api', logRoutes);
 
 // Manejo de errores 404
 app.use((req, res) => {
