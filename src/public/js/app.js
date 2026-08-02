@@ -31,4 +31,8 @@ function renderApp() {
 window.addEventListener('hashchange', renderApp);
 
 // ✅ Inicializar la aplicación
-document.addEventListener('DOMContentLoaded', renderApp);
+document.addEventListener('DOMContentLoaded', () => {
+  // Inicializar tema (claro/oscuro) desde cookie
+  theme.init();
+  renderApp();
+});
